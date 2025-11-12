@@ -631,16 +631,13 @@ def run_all_and_save():
     """
     # Kích thước ước lượng (để sắp xếp mà không phải fetch 2 lần)
     size_hint = {
-        "iris": 150,
-        "wine": 178,
-        "faces": 400,
         "breast_cancer": 569,
         "digits": 1797,
         "newsgroups_vec": 18846,  # subset='all'
         "housing": 20640,         # California Housing
     }
 
-    wanted = ["iris", "wine", "faces", "breast_cancer", "digits", "newsgroups_vec", "housing"]
+    wanted = ["breast_cancer", "digits", "newsgroups_vec", "housing"]
     datasets_sorted = sorted(wanted, key=lambda k: size_hint[k])
 
     out_dir = Path("runs"); out_dir.mkdir(exist_ok=True)
