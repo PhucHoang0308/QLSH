@@ -601,46 +601,46 @@ def test_qlsh_dataset(name=None, dataset_type='iris'):
     }
 from contextlib import redirect_stdout
 import io, json
-from contextlib import redirect_stdout
-import io, json
 from pathlib import Path
+import datetime
 
 def run_all_and_save():
-    datasets = ["iris", "breast_cancer", "wine", "digits"]
+    datasets = ["breast_cancer", "wine", "digits"]
     out_dir = Path("runs")
     out_dir.mkdir(exist_ok=True)
     out_txt = out_dir / "qlsh_all_datasets.txt"
     out_json = out_dir / "qlsh_all_datasets.json"
 
-    all_results = {}
-
-    print("=== QLSH – Benchmark all sklearn datasets ===")
+    start_time = datetime.datetime.now()
+    print("=== 🧪 QLSH – Benchmark all sklearn datasets ===")
     print("Datasets:", ", ".join(datasets))
-    print("-" * 80)
+    print("Start time:", start_time.strftime("%Y-%m-%d %H:%M:%S"))
+    print("=" * 100)
+
+    all_results = {}
 
     with open(out_txt, "w", encoding="utf-8") as f:
         f.write("=== QLSH – Benchmark all sklearn datasets ===\n")
-        f.write("Datasets: " + ", ".join(datasets) + "\n\n")
+        f.write("Datasets: " + ", ".join(datasets) + "\n")
+        f.write(f"Start time: {start_time.strftime('%Y-%m-%d %H:%M:%S')}\n\n")
 
-        for ds in datasets:
-            print(f"\n🧠 Running dataset: {ds}")
-            f.write(f"\n{'='*80}\n")
-            f.write(f"DATASET: {ds}\n")
-            f.write(f"{'='*80}\n")
+        for idx, ds in enumerate(datasets, 1):
+            header = f"\n{'='*100}\n[{idx}/{len(datasets)}] DATASET: {ds.upper()}\n{'='*100}\n"
+            print(header)
+            f.write(header)
 
             buf = io.StringIO()
             try:
-                # redirect stdout tạm thời để thu log từ test_qlsh_dataset
+                # redirect stdout để lấy toàn bộ log
                 with redirect_stdout(buf):
                     res = test_qlsh_dataset(dataset_type=ds)
 
+                # log chi tiết của test_qlsh_dataset
                 log = buf.getvalue()
-                # in ra terminal luôn
-                print(log)
-                # đồng thời ghi vào file
-                f.write(log)
+                print(log)      # in đầy đủ ra terminal
+                f.write(log)    # ghi vào file
 
-                # tóm tắt kết quả
+                # summary gọn
                 summary = {
                     "avg_f1": float(res.get("avg_f1", 0.0)),
                     "avg_query_time": float(res.get("avg_query_time", 0.0)),
@@ -650,29 +650,47 @@ def run_all_and_save():
                 }
                 all_results[ds] = summary
 
-                f.write("\n--- SUMMARY ---\n")
-                f.write(json.dumps(summary, ensure_ascii=False, indent=2))
-                f.write("\n")
-
-                print("✅ Done", ds, "| Summary:", summary)
-                print("-" * 80)
+                # in và ghi summary đầy đủ
+                summary_text = (
+                    f"\n--- SUMMARY for {ds.upper()} ---\n"
+                    f"Average F1 score     : {summary['avg_f1']:.4f}\n"
+                    f"Average query time   : {summary['avg_query_time']:.4f} s\n"
+                    f"Build time           : {summary['build_time']:.4f} s\n"
+                    f"Epoch time           : {summary['epoch_time']:.4f} s\n"
+                    f"Total qubits used    : {summary['total_qubits']}\n"
+                )
+                print(summary_text)
+                f.write(summary_text)
+                f.write("-" * 100 + "\n")
 
             except Exception as e:
                 log = buf.getvalue()
+                print(log)
+                print(f"[ERROR] {ds}: {e}")
                 f.write(log)
-                f.write(f"\n[ERROR] {ds}: {e}\n")
+                f.write(f"[ERROR] {ds}: {e}\n")
                 all_results[ds] = {"error": str(e)}
-                print(f"❌ ERROR {ds}: {e}")
 
-    # ghi thêm file JSON tổng hợp
+    # lưu JSON summary
     with open(out_json, "w", encoding="utf-8") as jf:
         json.dump(all_results, jf, ensure_ascii=False, indent=2)
 
-    print("\n✅ ALL DONE!")
-    print(f"📄 Logs saved to: {out_txt}")
-    print(f"📊 JSON summary: {out_json}")
+    end_time = datetime.datetime.now()
+    total_time = end_time - start_time
 
+    footer = (
+        f"\n{'='*100}\n"
+        f"✅ ALL DATASETS COMPLETED\n"
+        f"Start : {start_time.strftime('%Y-%m-%d %H:%M:%S')}\n"
+        f"End   : {end_time.strftime('%Y-%m-%d %H:%M:%S')}\n"
+        f"Total time: {total_time}\n"
+        f"📄 Detailed log saved to: {out_txt}\n"
+        f"📊 Summary JSON saved to: {out_json}\n"
+        f"{'='*100}\n"
+    )
+    print(footer)
+    with open(out_txt, "a", encoding="utf-8") as f:
+        f.write(footer)
 
 if __name__ == "__main__":
-    # chạy toàn bộ datasets
     run_all_and_save()
