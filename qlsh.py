@@ -514,18 +514,18 @@ def test_qlsh_dataset(name=None, dataset_type='iris'):
     query_indices = rng.choice(n_samples, n_queries, replace=False)
     queries = data[query_indices]
 
-    print(f"\nDataset: {dataset_name}")
-    print(f"Shape: {data.shape} (samples, features)")
-    print(f"Queries: {n_queries} | Indices: {query_indices.tolist()}")
-    print(f"K (nearest neighbors): {k}")
+    print(f"\nDataset: {dataset_name}",flush=True)
+    print(f"Shape: {data.shape} (samples, features)",flush=True)
+    print(f"Queries: {n_queries} | Indices: {query_indices.tolist()}",flush=True)
+    print(f"K (nearest neighbors): {k}",flush=True)
 
     # 4) Khởi tạo QLSH
     qlsh = QLSH(input_dim=n_dimensions, num_bits=num_bits, num_tables=num_tables, random_state=42)
     print(f"\nQLSH Configuration:")
-    print(f"  Input dimensions: {qlsh.input_dim}")
-    print(f"  Number of bits: {qlsh.num_bits}")
-    print(f"  Number of tables: {qlsh.num_tables}")
-    print(f"  Partition length: {qlsh.length}")
+    print(f"  Input dimensions: {qlsh.input_dim}",flush=True)
+    print(f"  Number of bits: {qlsh.num_bits}",flush=True)
+    print(f"  Number of tables: {qlsh.num_tables}",flush=True)
+    print(f"  Partition length: {qlsh.length}",flush=True)
 
     # 5) Qubit count
     partitions_per_table = qlsh.num_bits // qlsh.length
@@ -539,34 +539,34 @@ def test_qlsh_dataset(name=None, dataset_type='iris'):
     ancilla_qubits = 1
     total_qubits = index_reg_qubits + data_reg_qubits + query_reg_qubits + distance_reg_qubits + ancilla_qubits
 
-    print(f"\n🔬 Quantum Circuit Configuration:")
-    print(f"  Index register qubits: {index_reg_qubits}")
-    print(f"  Data register qubits: {data_reg_qubits}")
-    print(f"  Query register qubits: {query_reg_qubits}")
-    print(f"  Distance register qubits: {distance_reg_qubits}")
-    print(f"  Ancilla qubits: {ancilla_qubits}")
-    print(f"  ➤ TOTAL QUBITS REQUIRED: {total_qubits}")
+    print(f"\n🔬 Quantum Circuit Configuration:",flush=True)
+    print(f"  Index register qubits: {index_reg_qubits}",flush=True)
+    print(f"  Data register qubits: {data_reg_qubits}",flush=True)
+    print(f"  Query register qubits: {query_reg_qubits}",flush=True)
+    print(f"  Distance register qubits: {distance_reg_qubits}",flush=True)
+    print(f"  Ancilla qubits: {ancilla_qubits}",flush=True)
+    print(f"  ➤ TOTAL QUBITS REQUIRED: {total_qubits}",flush=True)
 
     # 6) Build index
-    print(f"\nBuilding QLSH index...")
+    print(f"\nBuilding QLSH index...",flush=True)
     build_start = time.time()
     qlsh.build(data, bit_per_table=2)
     build_time = time.time() - build_start
-    print(f"Build completed in {format_time(build_time)}")
-    print(f"  Data stored: {len(qlsh.data)} samples")
+    print(f"Build completed in {format_time(build_time)}",flush=True)
+    print(f"  Data stored: {len(qlsh.data)} samples",flush=True)
 
     # 7) Query + metrics
-    print(f"\n{'='*70}\nTESTING {n_queries} QUERIES\n{'='*70}")
+    print(f"\n{'='*70}\nTESTING {n_queries} QUERIES\n{'='*70}",flush=True)
     f1_scores, all_precisions, all_recalls, query_times = [], [], [], []
     epoch_start = time.time()
 
     for qi, query in enumerate(queries, 1):
-        print(f"\n[Query {qi}/{n_queries}]")
+        print(f"\n[Query {qi}/{n_queries}]",flush=True)
         # ground truth
         gt_start = time.time()
         ground_truth_indices, _ = get_cosine_ground_truth(data, query, k)
         gt_time = time.time() - gt_start
-        print(f"  Ground truth calculation: {format_time(gt_time)}")
+        print(f"  Ground truth calculation: {format_time(gt_time)}",flush=True)
 
         # QLSH
         q_start = time.time()
@@ -574,15 +574,15 @@ def test_qlsh_dataset(name=None, dataset_type='iris'):
             results = qlsh.query(query, k)
             q_time = time.time() - q_start
             query_times.append(q_time)
-            print(f"  QLSH query time: {format_time(q_time)}")
+            print(f"  QLSH query time: {format_time(q_time)}",flush=True)
 
             precision, recall, f1, _ = calculate_f1_score(results, ground_truth_indices, qlsh.data)
             f1_scores.append(f1); all_precisions.append(precision); all_recalls.append(recall)
-            print(f"  Precision: {precision:.4f} | Recall: {recall:.4f} | F1: {f1:.4f}")
+            print(f"  Precision: {precision:.4f} | Recall: {recall:.4f} | F1: {f1:.4f}",flush=True)
         except Exception as e:
             q_time = time.time() - q_start
             query_times.append(q_time)
-            print(f"  Failed after {format_time(q_time)}: {str(e)[:120]}")
+            print(f"  Failed after {format_time(q_time)}: {str(e)[:120]}",flush=True)
             f1_scores.append(0.0); all_precisions.append(0.0); all_recalls.append(0.0)
 
     epoch_time = time.time() - epoch_start
