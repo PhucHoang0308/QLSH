@@ -614,5 +614,5 @@ def test_qlsh_dataset(name=None, dataset_type='iris'):
         }
     }
 
-results = test_qlsh_dataset(dataset_type='fetch_covtype')
+results = test_qlsh_dataset(dataset_type='iris')
 print(results)
