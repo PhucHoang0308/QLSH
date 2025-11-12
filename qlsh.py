@@ -1,4 +1,3 @@
-
 import pennylane as qml
 import numpy as np
 import sys
@@ -225,7 +224,7 @@ class QLSH:
             table_candidates = table.get(hash_key, [])
             candidates.update(table_candidates)
 
-        print(f"Number of candidates: {len(candidates)}")
+        print(f"Number of candidates: {len(candidates)}", flush=True)
 
         if not candidates:
             # If no candidates found, return k random vectors
@@ -264,13 +263,13 @@ class QLSH:
 
         length_dist = int(np.ceil(np.log2(actual_P * length)))  # Length for distance register based on actual partitions
 
-        print(f"Debug info:")
-        print(f"  num_tables: {self.num_tables}")
-        print(f"  num_bits: {self.num_bits}")
-        print(f"  partitions per table: {self.num_bits // self.length}")
-        print(f"  actual_P (total partitions): {actual_P}")
-        print(f"  query_list length: {len(query_list)}")
-        print(f"  candidate_data[0] length: {len(candidate_data[0]) if candidate_data else 'N/A'}")
+        print(f"Debug info:", flush=True)
+        print(f"  num_tables: {self.num_tables}", flush=True)
+        print(f"  num_bits: {self.num_bits}", flush=True)
+        print(f"  partitions per table: {self.num_bits // self.length}", flush=True)
+        print(f"  actual_P (total partitions): {actual_P}", flush=True)
+        print(f"  query_list length: {len(query_list)}", flush=True)
+        print(f"  candidate_data[0] length: {len(candidate_data[0]) if candidate_data else 'N/A'}", flush=True)
 
         # Call quantum Hamming distance function
         quantum_results = Quantum_Hamming_Distance(
@@ -299,7 +298,7 @@ class QLSH:
                 results.append((vector, quantum_idx))
                 used_original_indices.add(original_idx)
 
-        print(f"Quantum returned {len(results)} results")
+        print(f"Quantum returned {len(results)} results", flush=True)
 
         # If quantum returns fewer than k results, fill with additional candidates
         if len(results) < k:
@@ -381,11 +380,11 @@ def format_time(seconds):
         return f"{seconds:.2f}s"
     else:
         return str(timedelta(seconds=int(seconds)))
-import time, io, json, datetime
+
+import time, json, datetime
 import numpy as np
 import pandas as pd
 from pathlib import Path
-from contextlib import redirect_stdout
 
 from sklearn.datasets import (
     load_iris,
@@ -399,65 +398,55 @@ from sklearn.datasets import (
 from sklearn.decomposition import TruncatedSVD
 from scipy.sparse import issparse
 
-# fallback format_time nếu file chưa có
-try:
-    format_time
-except NameError:
-    def format_time(sec: float) -> str:
-        return f"{sec:.6f}s" if sec < 1 else f"{sec:.3f}s"
-
-# ---------- Loader thống nhất cho từng dataset ----------
 def _load_dataset_by_key(dataset_type: str):
     """
-    Trả về (X, y, dataset_name)
-    - Với 20newsgroups_vectorized: dùng subset='all' và giảm chiều bằng TruncatedSVD(256)
-    - Với faces: X có 4096 features
-    - Với housing: ~20640 mẫu, 8 features
+    Returns (X, y, dataset_name)
     """
     if dataset_type == 'iris':
-        ds = load_iris();     return ds.data, ds.target, "Iris"
+        ds = load_iris()
+        return ds.data, ds.target, "Iris"
     if dataset_type == 'wine':
-        ds = load_wine();     return ds.data, ds.target, "Wine"
+        ds = load_wine()
+        return ds.data, ds.target, "Wine"
     if dataset_type == 'breast_cancer':
-        ds = load_breast_cancer(); return ds.data, ds.target, "Breast Cancer"
+        ds = load_breast_cancer()
+        return ds.data, ds.target, "Breast Cancer"
     if dataset_type == 'digits':
-        ds = load_digits();   return ds.data, ds.target, "Digits"
+        ds = load_digits()
+        return ds.data, ds.target, "Digits"
     if dataset_type == 'faces':
-        ds = fetch_olivetti_faces();  # 400 x 4096 (float dense)
-        X = ds.data; y = getattr(ds, "target", None)
-        if y is None: y = np.zeros(X.shape[0], dtype=int)
+        ds = fetch_olivetti_faces()
+        X = ds.data
+        y = getattr(ds, "target", None)
+        if y is None:
+            y = np.zeros(X.shape[0], dtype=int)
         return X, y, "Olivetti Faces"
     if dataset_type == 'housing':
         ds = fetch_california_housing()
-        # Regression dataset — vẫn OK cho benchmark khoảng cách
         return ds.data, ds.target, "California Housing"
     if dataset_type == 'newsgroups_vec':
-        # TF-IDF sparse, rất nhiều chiều -> giảm chiều để chạy QLSH
         Xy = fetch_20newsgroups_vectorized(subset='all', return_X_y=True)
         X, y = Xy
         if not issparse(X):
-            # edge case hiếm: vẫn đảm bảo dtype float
             X = np.asarray(X, dtype=np.float32)
-        # Giảm chiều TF-IDF -> 256 (đủ nhanh và vẫn “giữ thông tin” cơ bản)
         svd = TruncatedSVD(n_components=256, random_state=42)
         X_reduced = svd.fit_transform(X)
         y = np.asarray(y) if y is not None else np.zeros(X_reduced.shape[0], dtype=int)
         return X_reduced, y, "20 Newsgroups (vectorized, SVD=256)"
     raise ValueError(f"Unknown dataset type: {dataset_type}")
 
-# ---------- test_qlsh_dataset: giữ API cũ, thêm các dataset mới ----------
 def test_qlsh_dataset(name=None, dataset_type='iris'):
     dataset_folder = Path("dataset")
     dataset_folder.mkdir(exist_ok=True)
 
-    # 1) Nếu truyền 'name' -> load file local
+    # Load dataset
     if name is not None:
         filepath = dataset_folder / name
         if not filepath.exists():
-            print(f"Error: File {filepath} not found!")
+            print(f"Error: File {filepath} not found!", flush=True)
             return False
 
-        print(f"Loading dataset from: {filepath}")
+        print(f"Loading dataset from: {filepath}", flush=True)
         try:
             if filepath.suffix == '.csv':
                 df = pd.read_csv(filepath)
@@ -468,66 +457,63 @@ def test_qlsh_dataset(name=None, dataset_type='iris'):
             elif filepath.suffix == '.parquet':
                 df = pd.read_parquet(filepath)
             else:
-                print(f"Unsupported file format: {filepath.suffix}")
+                print(f"Unsupported file format: {filepath.suffix}", flush=True)
                 return False
 
-            print("Dataset loaded successfully!")
-            print(f"Shape: {df.shape}")
-            print(f"Columns: {df.columns.tolist()}")
+            print("Dataset loaded successfully!", flush=True)
+            print(f"Shape: {df.shape}", flush=True)
+            print(f"Columns: {df.columns.tolist()}", flush=True)
             if 'target' not in df.columns:
                 df['target'] = 0
             dataset_name = f"CustomFile({name})"
             X = df.iloc[:, :-1].values
             y = df['target'].values
         except Exception as e:
-            print(f"Error reading file: {e}")
+            print(f"Error reading file: {e}", flush=True)
             return False
-
     else:
-        # 2) Load các dataset sẵn có theo key
         try:
             X, y, dataset_name = _load_dataset_by_key(dataset_type)
         except Exception as e:
-            print(f"Failed to load dataset '{dataset_type}': {e}")
+            print(f"Failed to load dataset '{dataset_type}': {e}", flush=True)
             return {'error': str(e)}
 
-        # digits / faces có thể không có feature_names — ta không cần ở đây
         df = pd.DataFrame(X, columns=[f"f{i}" for i in range(X.shape[1])])
         df['target'] = y
 
-        print(f"Testing QLSH with F1 Score Evaluation and Timing - {dataset_name} Dataset")
+        print(f"Testing QLSH with F1 Score Evaluation and Timing - {dataset_name} Dataset", flush=True)
 
-    # 3) Tham số / chuẩn hoá
+    # Parameters
     n_samples = df.shape[0]
     n_dimensions = df.shape[1] - 1
     k = 5
-    n_queries = min(3, n_samples)   # tránh lỗi nếu dataset quá nhỏ
+    n_queries = min(3, n_samples)
     num_tables = 4
     num_bits = 8
 
     data = df.iloc[:, :-1].values.astype(float)
-    norms = np.linalg.norm(data, axis=1, keepdims=True); norms[norms==0] = 1.0
+    norms = np.linalg.norm(data, axis=1, keepdims=True)
+    norms[norms==0] = 1.0
     data = data / norms
 
-    # chọn query ngẫu nhiên
     rng = np.random.default_rng(123)
     query_indices = rng.choice(n_samples, n_queries, replace=False)
     queries = data[query_indices]
 
-    print(f"\nDataset: {dataset_name}",flush=True)
-    print(f"Shape: {data.shape} (samples, features)",flush=True)
-    print(f"Queries: {n_queries} | Indices: {query_indices.tolist()}",flush=True)
-    print(f"K (nearest neighbors): {k}",flush=True)
+    print(f"\nDataset: {dataset_name}", flush=True)
+    print(f"Shape: {data.shape} (samples, features)", flush=True)
+    print(f"Queries: {n_queries} | Indices: {query_indices.tolist()}", flush=True)
+    print(f"K (nearest neighbors): {k}", flush=True)
 
-    # 4) Khởi tạo QLSH
+    # Initialize QLSH
     qlsh = QLSH(input_dim=n_dimensions, num_bits=num_bits, num_tables=num_tables, random_state=42)
-    print(f"\nQLSH Configuration:")
-    print(f"  Input dimensions: {qlsh.input_dim}",flush=True)
-    print(f"  Number of bits: {qlsh.num_bits}",flush=True)
-    print(f"  Number of tables: {qlsh.num_tables}",flush=True)
-    print(f"  Partition length: {qlsh.length}",flush=True)
+    print(f"\nQLSH Configuration:", flush=True)
+    print(f"  Input dimensions: {qlsh.input_dim}", flush=True)
+    print(f"  Number of bits: {qlsh.num_bits}", flush=True)
+    print(f"  Number of tables: {qlsh.num_tables}", flush=True)
+    print(f"  Partition length: {qlsh.length}", flush=True)
 
-    # 5) Qubit count
+    # Qubit count
     partitions_per_table = qlsh.num_bits // qlsh.length
     total_partitions = partitions_per_table * qlsh.num_tables
     length_dist = int(np.ceil(np.log2(total_partitions * qlsh.length)))
@@ -539,34 +525,35 @@ def test_qlsh_dataset(name=None, dataset_type='iris'):
     ancilla_qubits = 1
     total_qubits = index_reg_qubits + data_reg_qubits + query_reg_qubits + distance_reg_qubits + ancilla_qubits
 
-    print(f"\n🔬 Quantum Circuit Configuration:",flush=True)
-    print(f"  Index register qubits: {index_reg_qubits}",flush=True)
-    print(f"  Data register qubits: {data_reg_qubits}",flush=True)
-    print(f"  Query register qubits: {query_reg_qubits}",flush=True)
-    print(f"  Distance register qubits: {distance_reg_qubits}",flush=True)
-    print(f"  Ancilla qubits: {ancilla_qubits}",flush=True)
-    print(f"  ➤ TOTAL QUBITS REQUIRED: {total_qubits}",flush=True)
+    print(f"\n🔬 Quantum Circuit Configuration:", flush=True)
+    print(f"  Index register qubits: {index_reg_qubits}", flush=True)
+    print(f"  Data register qubits: {data_reg_qubits}", flush=True)
+    print(f"  Query register qubits: {query_reg_qubits}", flush=True)
+    print(f"  Distance register qubits: {distance_reg_qubits}", flush=True)
+    print(f"  Ancilla qubits: {ancilla_qubits}", flush=True)
+    print(f"  ➤ TOTAL QUBITS REQUIRED: {total_qubits}", flush=True)
 
-    # 6) Build index
-    print(f"\nBuilding QLSH index...",flush=True)
+    # Build index
+    print(f"\nBuilding QLSH index...", flush=True)
     build_start = time.time()
     qlsh.build(data, bit_per_table=2)
     build_time = time.time() - build_start
-    print(f"Build completed in {format_time(build_time)}",flush=True)
-    print(f"  Data stored: {len(qlsh.data)} samples",flush=True)
+    print(f"Build completed in {format_time(build_time)}", flush=True)
+    print(f"  Data stored: {len(qlsh.data)} samples", flush=True)
 
-    # 7) Query + metrics
-    print(f"\n{'='*70}\nTESTING {n_queries} QUERIES\n{'='*70}",flush=True)
+    # Query + metrics
+    print(f"\n{'='*70}\nTESTING {n_queries} QUERIES\n{'='*70}", flush=True)
     f1_scores, all_precisions, all_recalls, query_times = [], [], [], []
     epoch_start = time.time()
 
     for qi, query in enumerate(queries, 1):
-        print(f"\n[Query {qi}/{n_queries}]",flush=True)
-        # ground truth
+        print(f"\n[Query {qi}/{n_queries}]", flush=True)
+        
+        # Ground truth
         gt_start = time.time()
         ground_truth_indices, _ = get_cosine_ground_truth(data, query, k)
         gt_time = time.time() - gt_start
-        print(f"  Ground truth calculation: {format_time(gt_time)}",flush=True)
+        print(f"  Ground truth calculation: {format_time(gt_time)}", flush=True)
 
         # QLSH
         q_start = time.time()
@@ -574,36 +561,40 @@ def test_qlsh_dataset(name=None, dataset_type='iris'):
             results = qlsh.query(query, k)
             q_time = time.time() - q_start
             query_times.append(q_time)
-            print(f"  QLSH query time: {format_time(q_time)}",flush=True)
+            print(f"  QLSH query time: {format_time(q_time)}", flush=True)
 
             precision, recall, f1, _ = calculate_f1_score(results, ground_truth_indices, qlsh.data)
-            f1_scores.append(f1); all_precisions.append(precision); all_recalls.append(recall)
-            print(f"  Precision: {precision:.4f} | Recall: {recall:.4f} | F1: {f1:.4f}",flush=True)
+            f1_scores.append(f1)
+            all_precisions.append(precision)
+            all_recalls.append(recall)
+            print(f"  Precision: {precision:.4f} | Recall: {recall:.4f} | F1: {f1:.4f}", flush=True)
         except Exception as e:
             q_time = time.time() - q_start
             query_times.append(q_time)
-            print(f"  Failed after {format_time(q_time)}: {str(e)[:120]}",flush=True)
-            f1_scores.append(0.0); all_precisions.append(0.0); all_recalls.append(0.0)
+            print(f"  Failed after {format_time(q_time)}: {str(e)[:120]}", flush=True)
+            f1_scores.append(0.0)
+            all_precisions.append(0.0)
+            all_recalls.append(0.0)
 
     epoch_time = time.time() - epoch_start
 
-    # 8) Tổng hợp
-    print(f"\n{'='*70}\nOVERALL RESULTS\n{'='*70}")
-    print(f"\n📊 Performance Metrics:")
-    print(f"  Average Precision: {np.mean(all_precisions):.4f} ± {np.std(all_precisions):.4f}")
-    print(f"  Average Recall   : {np.mean(all_recalls):.4f} ± {np.std(all_recalls):.4f}")
-    print(f"  Average F1 Score : {np.mean(f1_scores):.4f} ± {np.std(f1_scores):.4f}")
+    # Summary
+    print(f"\n{'='*70}\nOVERALL RESULTS\n{'='*70}", flush=True)
+    print(f"\n📊 Performance Metrics:", flush=True)
+    print(f"  Average Precision: {np.mean(all_precisions):.4f} ± {np.std(all_precisions):.4f}", flush=True)
+    print(f"  Average Recall   : {np.mean(all_recalls):.4f} ± {np.std(all_recalls):.4f}", flush=True)
+    print(f"  Average F1 Score : {np.mean(f1_scores):.4f} ± {np.std(f1_scores):.4f}", flush=True)
 
-    print(f"\n⏱️  Timing Statistics:")
-    print(f"  Build time       : {format_time(build_time)}")
-    print(f"  Total epoch time : {format_time(epoch_time)}")
-    print(f"  Average query    : {format_time(np.mean(query_times))} ± {format_time(np.std(query_times))}")
-    print(f"  Min / Max query  : {format_time(np.min(query_times))} / {format_time(np.max(query_times))}")
+    print(f"\n⏱️  Timing Statistics:", flush=True)
+    print(f"  Build time       : {format_time(build_time)}", flush=True)
+    print(f"  Total epoch time : {format_time(epoch_time)}", flush=True)
+    print(f"  Average query    : {format_time(np.mean(query_times))} ± {format_time(np.std(query_times))}", flush=True)
+    print(f"  Min / Max query  : {format_time(np.min(query_times))} / {format_time(np.max(query_times))}", flush=True)
 
-    print(f"\n💾 Memory Statistics:")
-    print(f"  Total samples indexed: {len(qlsh.data)}")
-    print(f"  Hash tables          : {len(qlsh.tables)}")
-    print(f"  Total qubits used    : {total_qubits}")
+    print(f"\n💾 Memory Statistics:", flush=True)
+    print(f"  Total samples indexed: {len(qlsh.data)}", flush=True)
+    print(f"  Hash tables          : {len(qlsh.tables)}", flush=True)
+    print(f"  Total qubits used    : {total_qubits}", flush=True)
 
     return {
         'build_time': build_time,
@@ -626,53 +617,62 @@ def test_qlsh_dataset(name=None, dataset_type='iris'):
 
 def run_all_and_save():
     """
-    Chạy các dataset và SẮP XẾP THEO SỐ LƯỢNG MẪU TĂNG DẦN.
-    Bao gồm: iris, wine, faces, breast_cancer, digits, newsgroups_vec (~18.8k), housing (~20.6k)
+    Run all datasets and SORT FROM LARGE TO SMALL (descending order by sample size)
+    Including: housing (~20.6k), newsgroups_vec (~18.8k), digits, faces, breast_cancer
     """
-    # Kích thước ước lượng (để sắp xếp mà không phải fetch 2 lần)
+    # Size hints for sorting (descending)
     size_hint = {
-        "breast_cancer": 569,
+        "housing": 20640,
+        "newsgroups_vec": 18846,
         "digits": 1797,
-        "newsgroups_vec": 18846,  # subset='all'
-        "housing": 20640,         # California Housing
+        "breast_cancer": 569,
     }
 
-    wanted = ["breast_cancer", "digits", "newsgroups_vec", "housing"]
-    datasets_sorted = sorted(wanted, key=lambda k: size_hint[k])
+    wanted = ["housing", "newsgroups_vec", "digits", "breast_cancer"]
+    # Sort descending (largest first)
+    datasets_sorted = sorted(wanted, key=lambda k: size_hint[k], reverse=True)
 
-    out_dir = Path("runs"); out_dir.mkdir(exist_ok=True)
+    out_dir = Path("runs")
+    out_dir.mkdir(exist_ok=True)
     out_txt = out_dir / "qlsh_all_datasets.txt"
     out_json = out_dir / "qlsh_all_datasets.json"
 
     start_time = datetime.datetime.now()
-    print("=== 🧪 QLSH – Benchmark sklearn datasets (sorted by sample size ↑) ===")
-    print("Order:", " → ".join(datasets_sorted))
-    print("Start time:", start_time.strftime("%Y-%m-%d %H:%M:%S"))
     print("=" * 100)
+    print("=== 🧪 QLSH — Benchmark sklearn datasets (sorted LARGE → SMALL) ===")
+    print("=" * 100)
+    print(f"Order: {' → '.join(datasets_sorted)}")
+    print(f"Start time: {start_time.strftime('%Y-%m-%d %H:%M:%S')}")
+    print("=" * 100)
+    sys.stdout.flush()
 
     all_results = {}
 
     with open(out_txt, "w", encoding="utf-8") as f:
-        f.write("=== QLSH – Benchmark sklearn datasets (sorted by sample size ↑) ===\n")
-        f.write("Order: " + " → ".join(datasets_sorted) + "\n")
+        f.write("=" * 100 + "\n")
+        f.write("=== QLSH — Benchmark sklearn datasets (sorted LARGE → SMALL) ===\n")
+        f.write("=" * 100 + "\n")
+        f.write(f"Order: {' → '.join(datasets_sorted)}\n")
         f.write(f"Start time: {start_time.strftime('%Y-%m-%d %H:%M:%S')}\n\n")
+        f.flush()
 
         for idx, ds in enumerate(datasets_sorted, 1):
             header = f"\n{'='*100}\n[{idx}/{len(datasets_sorted)}] DATASET: {ds.upper()}\n{'='*100}\n"
-            print(header); f.write(header)
+            print(header)
+            f.write(header)
+            f.flush()
+            sys.stdout.flush()
 
-            buf = io.StringIO()
             try:
-                with redirect_stdout(buf):
-                    res = test_qlsh_dataset(dataset_type=ds)
-
-                log = buf.getvalue()
-                print(log); f.write(log)
+                res = test_qlsh_dataset(dataset_type=ds)
 
                 if isinstance(res, dict) and "error" in res:
                     all_results[ds] = {"error": res["error"]}
                     err_line = f"[ERROR] Skipped {ds}: {res['error']}\n"
-                    print(err_line); f.write(err_line)
+                    print(err_line)
+                    f.write(err_line)
+                    f.flush()
+                    sys.stdout.flush()
                     continue
 
                 summary = {
@@ -692,14 +692,18 @@ def run_all_and_save():
                     f"Epoch time           : {summary['epoch_time']:.4f} s\n"
                     f"Total qubits used    : {summary['total_qubits']}\n"
                 )
-                print(summary_text); f.write(summary_text)
+                print(summary_text)
+                f.write(summary_text)
                 f.write("-" * 100 + "\n")
+                f.flush()
+                sys.stdout.flush()
 
             except Exception as e:
-                log = buf.getvalue()
-                print(log); f.write(log)
                 err = f"[ERROR] {ds}: {e}\n"
-                print(err); f.write(err)
+                print(err)
+                f.write(err)
+                f.flush()
+                sys.stdout.flush()
                 all_results[ds] = {"error": str(e)}
 
     with open(out_json, "w", encoding="utf-8") as jf:
@@ -720,7 +724,7 @@ def run_all_and_save():
     print(footer)
     with open(out_txt, "a", encoding="utf-8") as f:
         f.write(footer)
+    sys.stdout.flush()
 
 if __name__ == "__main__":
     run_all_and_save()
-# ==== HẾT KHỐI COPY ====
