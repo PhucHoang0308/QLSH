@@ -601,61 +601,78 @@ def test_qlsh_dataset(name=None, dataset_type='iris'):
     }
 from contextlib import redirect_stdout
 import io, json
+from contextlib import redirect_stdout
+import io, json
+from pathlib import Path
 
 def run_all_and_save():
     datasets = ["iris", "breast_cancer", "wine", "digits"]
-    out_dir = Path("runs"); out_dir.mkdir(exist_ok=True)
-    out_txt = out_dir / "qlsh_all_datasets.txt"     # toàn bộ log + tóm tắt
-    out_json = out_dir / "qlsh_all_datasets.json"   # summary dạng JSON (tiện phân tích thêm)
+    out_dir = Path("runs")
+    out_dir.mkdir(exist_ok=True)
+    out_txt = out_dir / "qlsh_all_datasets.txt"
+    out_json = out_dir / "qlsh_all_datasets.json"
 
     all_results = {}
+
+    print("=== QLSH – Benchmark all sklearn datasets ===")
+    print("Datasets:", ", ".join(datasets))
+    print("-" * 80)
+
     with open(out_txt, "w", encoding="utf-8") as f:
         f.write("=== QLSH – Benchmark all sklearn datasets ===\n")
         f.write("Datasets: " + ", ".join(datasets) + "\n\n")
 
         for ds in datasets:
+            print(f"\n🧠 Running dataset: {ds}")
             f.write(f"\n{'='*80}\n")
             f.write(f"DATASET: {ds}\n")
             f.write(f"{'='*80}\n")
 
             buf = io.StringIO()
             try:
-                # redirect toàn bộ stdout của test_qlsh_dataset vào buffer
+                # redirect stdout tạm thời để thu log từ test_qlsh_dataset
                 with redirect_stdout(buf):
                     res = test_qlsh_dataset(dataset_type=ds)
-                log = buf.getvalue()
-                f.write(log)  # ghi toàn bộ log chi tiết
 
-                # lưu summary gọn để tra cứu nhanh
-                all_results[ds] = {
+                log = buf.getvalue()
+                # in ra terminal luôn
+                print(log)
+                # đồng thời ghi vào file
+                f.write(log)
+
+                # tóm tắt kết quả
+                summary = {
                     "avg_f1": float(res.get("avg_f1", 0.0)),
                     "avg_query_time": float(res.get("avg_query_time", 0.0)),
                     "build_time": float(res.get("build_time", 0.0)),
                     "epoch_time": float(res.get("epoch_time", 0.0)),
                     "total_qubits": int(res.get("total_qubits", 0)),
                 }
+                all_results[ds] = summary
 
-                # ghi tóm tắt cuối mỗi dataset vào .txt
                 f.write("\n--- SUMMARY ---\n")
-                f.write(json.dumps(all_results[ds], ensure_ascii=False, indent=2))
+                f.write(json.dumps(summary, ensure_ascii=False, indent=2))
                 f.write("\n")
+
+                print("✅ Done", ds, "| Summary:", summary)
+                print("-" * 80)
 
             except Exception as e:
                 log = buf.getvalue()
                 f.write(log)
                 f.write(f"\n[ERROR] {ds}: {e}\n")
                 all_results[ds] = {"error": str(e)}
+                print(f"❌ ERROR {ds}: {e}")
 
-    # ghi thêm 1 file JSON tổng hợp
+    # ghi thêm file JSON tổng hợp
     with open(out_json, "w", encoding="utf-8") as jf:
         json.dump(all_results, jf, ensure_ascii=False, indent=2)
 
-    print(f"\n✅ Done. Saved logs to: {out_txt}")
-    print(f"✅ JSON summary: {out_json}")
+    print("\n✅ ALL DONE!")
+    print(f"📄 Logs saved to: {out_txt}")
+    print(f"📊 JSON summary: {out_json}")
+
 
 if __name__ == "__main__":
-    # nếu trước đó có dòng demo đơn lẻ thì comment lại:
-    # results = test_qlsh_dataset(dataset_type='digits'); print(results)
-
-    # chạy toàn bộ
+    # chạy toàn bộ datasets
     run_all_and_save()
