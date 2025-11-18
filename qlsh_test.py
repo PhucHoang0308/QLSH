@@ -721,7 +721,7 @@ def run_all_and_save():
 
     wanted = [ "newsgroups_vec", "digits", "breast_cancer", "iris" ]
     # Sort descending (largest first)
-    datasets_sorted = sorted(wanted, key=lambda k: size_hint[k])
+    datasets_sorted = sorted(wanted, key=lambda k: size_hint[k], reverse=True)
 
     out_dir = Path("runs")
     out_dir.mkdir(exist_ok=True)
