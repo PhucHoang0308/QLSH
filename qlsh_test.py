@@ -31,6 +31,7 @@ def Quantum_Hamming_Distance(dataset, query_list, length, length_dist, P, k, que
     distance_reg = list(range(index_reg_qubits+length+length, index_reg_qubits+length+length+length_dist))
     ancilla_qubit = index_reg_qubits+length+length+length_dist
     shots = max(20, int(np.ceil(len(dataset)*np.log2(max(2, len(dataset))))))  # Ensure minimum 20 shots
+    shots = min(shots, 1024)  # Cap shots to 1024 for practicality
 
 
 
@@ -109,22 +110,27 @@ def Quantum_Hamming_Distance(dataset, query_list, length, length_dist, P, k, que
     circuit_num_gates = 0
 
     try:
-        specs = qml.specs(circuit, compute_depth=True)()
+        specs = qml.specs(circuit)()
 
-        # Case 1: specs là dict có 'depth' / 'num_operations'
+        circuit_depth = 0
+        circuit_num_gates = 0
+
+        # Spec dạng dict
         if isinstance(specs, dict):
+            # depth
             if "depth" in specs:
                 circuit_depth = specs["depth"]
             elif "resources" in specs and hasattr(specs["resources"], "depth"):
                 circuit_depth = specs["resources"].depth
 
+            # num gates
             if "num_operations" in specs:
                 circuit_num_gates = specs["num_operations"]
             elif "resources" in specs and hasattr(specs["resources"], "num_operations"):
                 circuit_num_gates = specs["resources"].num_operations
 
         else:
-            # Case 2: specs là object có .resources
+            # spec dạng object
             res = getattr(specs, "resources", specs)
             circuit_depth = getattr(res, "depth", 0)
             circuit_num_gates = getattr(res, "num_operations", 0)
@@ -133,7 +139,6 @@ def Quantum_Hamming_Distance(dataset, query_list, length, length_dist, P, k, que
         print(f"  ⚠️ Could not compute circuit specs: {e}", flush=True)
         circuit_depth = 0
         circuit_num_gates = 0
-
     print(
         f"  🔬 Circuit specs - Shots: {shots}, Depth: {circuit_depth}, Gates: {circuit_num_gates}",
         flush=True,
