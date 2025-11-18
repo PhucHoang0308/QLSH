@@ -578,7 +578,7 @@ def test_qlsh_dataset(name=None, dataset_type='iris'):
     else:
         num_tables = 6
         num_bits = 16
-        bit_bucket = 8
+        bit_bucket = 10
 
     qlsh = QLSH(input_dim=n_dimensions, num_bits=num_bits, num_tables=num_tables, random_state=42)
     print(f"\nQLSH Configuration:", flush=True)
