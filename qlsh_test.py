@@ -598,7 +598,7 @@ def test_qlsh_dataset(name=None, dataset_type='iris'):
     # Build index
     print(f"\nBuilding QLSH index...", flush=True)
     build_start = time.time()
-    qlsh.build(data, bit_per_table=2)
+    qlsh.build(data, bit_per_table=4)
     build_time = time.time() - build_start
     print(f"Build completed in {format_time(build_time)}", flush=True)
     print(f"  Data stored: {len(qlsh.data)} samples", flush=True)
