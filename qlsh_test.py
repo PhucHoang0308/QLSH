@@ -104,13 +104,41 @@ def Quantum_Hamming_Distance(dataset, query_list, length, length_dist, P, k, que
             qml.adjoint(qml.BasisEmbedding)(query, wires=query_reg)
         return qml.sample(wires = index_reg + distance_reg)
 
-    # Get circuit depth and specs
-    circuit_specs = qml.specs(circuit)()
-    circuit_depth = circuit_specs['depth']
-    circuit_num_gates = circuit_specs['num_operations']
-    
-    print(f"  🔬 Circuit specs - Shots: {shots}, Depth: {circuit_depth}, Gates: {circuit_num_gates}", flush=True)
-    
+    # Get circuit depth and specs (robust với nhiều version PennyLane)
+    circuit_depth = 0
+    circuit_num_gates = 0
+
+    try:
+        specs = qml.specs(circuit, compute_depth=True)()
+
+        # Case 1: specs là dict có 'depth' / 'num_operations'
+        if isinstance(specs, dict):
+            if "depth" in specs:
+                circuit_depth = specs["depth"]
+            elif "resources" in specs and hasattr(specs["resources"], "depth"):
+                circuit_depth = specs["resources"].depth
+
+            if "num_operations" in specs:
+                circuit_num_gates = specs["num_operations"]
+            elif "resources" in specs and hasattr(specs["resources"], "num_operations"):
+                circuit_num_gates = specs["resources"].num_operations
+
+        else:
+            # Case 2: specs là object có .resources
+            res = getattr(specs, "resources", specs)
+            circuit_depth = getattr(res, "depth", 0)
+            circuit_num_gates = getattr(res, "num_operations", 0)
+
+    except Exception as e:
+        print(f"  ⚠️ Could not compute circuit specs: {e}", flush=True)
+        circuit_depth = 0
+        circuit_num_gates = 0
+
+    print(
+        f"  🔬 Circuit specs - Shots: {shots}, Depth: {circuit_depth}, Gates: {circuit_num_gates}",
+        flush=True,
+    )
+
     # Save circuit diagram if requested
     if save_circuit:
         try:
