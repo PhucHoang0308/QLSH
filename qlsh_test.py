@@ -594,8 +594,16 @@ def test_qlsh_dataset(name=None, dataset_type='iris'):
 
     # Build index
     print(f"\nBuilding QLSH index...", flush=True)
+    n_samples = df.shape[0]
     build_start = time.time()
-    qlsh.build(data, bit_per_table=4)
+    if n_samples < 200:
+        qlsh.build(data, bit_per_table=2)
+    elif n_samples < 1000:
+        qlsh.build(data, bit_per_table=4)
+    elif n_samples < 10000:
+        qlsh.build(data, bit_per_table=6)
+    else:
+        qlsh.build(data, bit_per_table=8)
     build_time = time.time() - build_start
     print(f"Build completed in {format_time(build_time)}", flush=True)
     print(f"  Data stored: {len(qlsh.data)} samples", flush=True)
