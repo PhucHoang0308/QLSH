@@ -1,0 +1,126 @@
+{
+  "newsgroups_vec": {
+    "avg_f1": 0.0,
+    "avg_query_time": 1.7004533608754475,
+    "build_time": 0.9102938175201416,
+    "epoch_time": 5.2467193603515625,
+    "total_qubits": 29,
+    "circuit_stats": {
+      "avg_shots": 0.0,
+      "avg_depth": 0.0,
+      "avg_gates": 0.0,
+      "min_shots": 0,
+      "max_shots": 0,
+      "min_depth": 0,
+      "max_depth": 0,
+      "all_shots": [
+        0,
+        0,
+        0
+      ],
+      "all_depths": [
+        0,
+        0,
+        0
+      ],
+      "all_gates": [
+        0,
+        0,
+        0
+      ]
+    }
+  },
+  "digits": {
+    "avg_f1": 0.0,
+    "avg_query_time": 0.48478372891743976,
+    "build_time": 0.05143904685974121,
+    "epoch_time": 1.4611022472381592,
+    "total_qubits": 25,
+    "circuit_stats": {
+      "avg_shots": 0.0,
+      "avg_depth": 0.0,
+      "avg_gates": 0.0,
+      "min_shots": 0,
+      "max_shots": 0,
+      "min_depth": 0,
+      "max_depth": 0,
+      "all_shots": [
+        0,
+        0,
+        0
+      ],
+      "all_depths": [
+        0,
+        0,
+        0
+      ],
+      "all_gates": [
+        0,
+        0,
+        0
+      ]
+    }
+  },
+  "breast_cancer": {
+    "avg_f1": 0.0,
+    "avg_query_time": 0.5688374042510986,
+    "build_time": 0.013871908187866211,
+    "epoch_time": 1.7102153301239014,
+    "total_qubits": 24,
+    "circuit_stats": {
+      "avg_shots": 0.0,
+      "avg_depth": 0.0,
+      "avg_gates": 0.0,
+      "min_shots": 0,
+      "max_shots": 0,
+      "min_depth": 0,
+      "max_depth": 0,
+      "all_shots": [
+        0,
+        0,
+        0
+      ],
+      "all_depths": [
+        0,
+        0,
+        0
+      ],
+      "all_gates": [
+        0,
+        0,
+        0
+      ]
+    }
+  },
+  "iris": {
+    "avg_f1": 0.0,
+    "avg_query_time": 0.20969001452128092,
+    "build_time": 0.0026237964630126953,
+    "epoch_time": 0.6316750049591064,
+    "total_qubits": 22,
+    "circuit_stats": {
+      "avg_shots": 0.0,
+      "avg_depth": 0.0,
+      "avg_gates": 0.0,
+      "min_shots": 0,
+      "max_shots": 0,
+      "min_depth": 0,
+      "max_depth": 0,
+      "all_shots": [
+        0,
+        0,
+        0
+      ],
+      "all_depths": [
+        0,
+        0,
+        0
+      ],
+      "all_gates": [
+        0,
+        0,
+        0
+      ]
+    }
+  }
+}
