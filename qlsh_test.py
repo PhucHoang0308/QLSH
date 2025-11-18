@@ -11,7 +11,7 @@ import numpy as np
 import os
 from pathlib import Path
 
-def Quantum_Hamming_Distance(dataset, query_list, length, length_dist, P, k, query_idx=0, save_circuit=True):
+def Quantum_Hamming_Distance(dataset, query_list, length, length_dist, P, k, query_idx=0, save_circuit=False):
 
     """
     dataset: List of size N of the P partitions lists of samples
