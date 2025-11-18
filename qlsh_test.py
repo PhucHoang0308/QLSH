@@ -675,17 +675,17 @@ def test_qlsh_dataset(name=None, dataset_type='iris'):
 def run_all_and_save():
     """
     Run all datasets and SORT FROM LARGE TO SMALL (descending order by sample size)
-    Including: housing (~20.6k), newsgroups_vec (~18.8k), digits, breast_cancer
+    Including:newsgroups_vec (~18.8k), digits, breast_cancer, Iris
     """
     # Size hints for sorting (descending)
     size_hint = {
-        "housing": 20640,
         "newsgroups_vec": 18846,
         "digits": 1797,
         "breast_cancer": 569,
+        "iris": 150,
     }
 
-    wanted = ["housing", "newsgroups_vec", "digits", "breast_cancer"]
+    wanted = [ "newsgroups_vec", "digits", "breast_cancer", "iris" ]
     # Sort descending (largest first)
     datasets_sorted = sorted(wanted, key=lambda k: size_hint[k], reverse=True)
 
