@@ -547,8 +547,6 @@ def test_qlsh_dataset(name=None, dataset_type='iris'):
     n_dimensions = df.shape[1] - 1
     k = 5
     n_queries = min(3, n_samples)
-    num_tables = 4
-    num_bits = 8
 
     data = df.iloc[:, :-1].values.astype(float)
     norms = np.linalg.norm(data, axis=1, keepdims=True)
@@ -565,6 +563,23 @@ def test_qlsh_dataset(name=None, dataset_type='iris'):
     print(f"K (nearest neighbors): {k}", flush=True)
 
     # Initialize QLSH
+    if n_samples < 500:
+        num_tables = 4
+        num_bits = 8
+        bit_bucket = 2
+    elif n_samples < 2000:
+        num_tables = 6
+        num_bits = 12
+        bit_bucket = 4
+    elif n_samples < 10000:
+        num_tables = 6
+        num_bits = 16
+        bit_bucket = 6
+    else:
+        num_tables = 6
+        num_bits = 16
+        bit_bucket = 8
+
     qlsh = QLSH(input_dim=n_dimensions, num_bits=num_bits, num_tables=num_tables, random_state=42)
     print(f"\nQLSH Configuration:", flush=True)
     print(f"  Input dimensions: {qlsh.input_dim}", flush=True)
@@ -594,16 +609,8 @@ def test_qlsh_dataset(name=None, dataset_type='iris'):
 
     # Build index
     print(f"\nBuilding QLSH index...", flush=True)
-    n_samples = df.shape[0]
     build_start = time.time()
-    if n_samples < 200:
-        qlsh.build(data, bit_per_table=2)
-    elif n_samples < 1000:
-        qlsh.build(data, bit_per_table=4)
-    elif n_samples < 10000:
-        qlsh.build(data, bit_per_table=6)
-    else:
-        qlsh.build(data, bit_per_table=8)
+    qlsh.build(data, bit_per_table=bit_bucket)
     build_time = time.time() - build_start
     print(f"Build completed in {format_time(build_time)}", flush=True)
     print(f"  Data stored: {len(qlsh.data)} samples", flush=True)
