@@ -30,8 +30,9 @@ def Quantum_Hamming_Distance(dataset, query_list, length, length_dist, P, k, que
     query_reg = list(range(index_reg_qubits+length, index_reg_qubits+length+length))
     distance_reg = list(range(index_reg_qubits+length+length, index_reg_qubits+length+length+length_dist))
     ancilla_qubit = index_reg_qubits+length+length+length_dist
+    print("Shot calculation estimate: ",int(np.ceil(len(dataset)*np.log2(max(2, len(dataset))))), flush=True)
     shots = max(20, int(np.ceil(len(dataset)*np.log2(max(2, len(dataset))))))  # Ensure minimum 20 shots
-    shots = min(shots, 1024)  # Cap shots to 1024 for practicality
+    shots = min(shots, 25000)  # Cap shots to 1024 for practicality
 
 
 
