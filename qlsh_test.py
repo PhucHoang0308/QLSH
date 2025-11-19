@@ -871,3 +871,4 @@ def run_all_and_save():
     with open(out_txt, "a", encoding="utf-8") as f:
         f.write(footer)
     sys.stdout.flush()
+run_all_and_save()
