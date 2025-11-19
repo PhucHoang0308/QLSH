@@ -143,7 +143,7 @@ def Quantum_Hamming_Distance(dataset, query_list, length, length_dist, P, k, que
     )
 
     # Save circuit diagram if requested
-    if save_circuit:
+    '''if save_circuit:
         try:
             circuit_dir = Path("circuits")
             circuit_dir.mkdir(exist_ok=True)
@@ -154,7 +154,7 @@ def Quantum_Hamming_Distance(dataset, query_list, length, length_dist, P, k, que
             plt.close(fig)
             print(f"  💾 Circuit diagram saved to: {circuit_file}", flush=True)
         except Exception as e:
-            print(f"  ⚠️ Could not save circuit diagram: {e}", flush=True)
+            print(f"  ⚠️ Could not save circuit diagram: {e}", flush=True)'''
 
     dist = [list(x) for x in dict.fromkeys(map(tuple, circuit(shots = shots)))]
     thresh = thresh_finding(dist)
@@ -453,7 +453,9 @@ from sklearn.datasets import (
     fetch_olivetti_faces,
     fetch_california_housing,
     fetch_20newsgroups_vectorized,
+    make_classification,
 )
+
 from sklearn.decomposition import TruncatedSVD
 from scipy.sparse import issparse
 
@@ -492,6 +494,19 @@ def _load_dataset_by_key(dataset_type: str):
         X_reduced = svd.fit_transform(X)
         y = np.asarray(y) if y is not None else np.zeros(X_reduced.shape[0], dtype=int)
         return X_reduced, y, "20 Newsgroups (vectorized, SVD=256)"
+    
+    # 🔹 Dataset synthetic: tối đa 10k mẫu, 512 chiều
+    if dataset_type == 'syn_10k_512':
+        X, y = make_classification(
+            n_samples=10000,
+            n_features=512,
+            n_informative=50,
+            n_redundant=0,
+            n_classes=10,
+            random_state=42,
+        )
+        return X, y, "Synthetic (10k samples, 512 dims)"
+
     raise ValueError(f"Unknown dataset type: {dataset_type}")
 
 def test_qlsh_dataset(name=None, dataset_type='iris'):
@@ -720,20 +735,39 @@ def test_qlsh_dataset(name=None, dataset_type='iris'):
 
 def run_all_and_save():
     """
-    Run all datasets and SORT FROM LARGE TO SMALL (descending order by sample size)
-    Including:newsgroups_vec (~18.8k), digits, breast_cancer, Iris
+    Run all datasets và sắp xếp từ LỚN → NHỎ theo số lượng mẫu,
+    nhưng tất cả đều có số mẫu <= 12k.
+
+    Bao gồm:
+      - syn_10k_512     (~10k mẫu, 512 chiều, synthetic)
+      - digits          (~1.8k mẫu, 64 chiều)
+      - faces           (400 mẫu, ~4096 chiều)
+      - breast_cancer   (569 mẫu, 30 chiều)
+      - wine            (178 mẫu, 13 chiều)
+      - iris            (150 mẫu, 4 chiều)
     """
-    # Size hints for sorting (descending)
+    # Hint kích thước để sắp xếp (tất cả đều <= 12k)
     size_hint = {
-        "newsgroups_vec": 18846,
+        "syn_10k_512": 10000,
         "digits": 1797,
+        "faces": 400,
         "breast_cancer": 569,
+        "wine": 178,
         "iris": 150,
     }
 
-    wanted = [ "newsgroups_vec", "digits", "breast_cancer", "iris" ]
-    # Sort descending (largest first)
-    datasets_sorted = sorted(wanted, key=lambda k: size_hint[k], reverse=True)
+    # 🔹 Danh sách dataset muốn benchmark: toàn dataset nhỏ, nhưng có chiều cao
+    wanted = [
+        "syn_10k_512",
+        "digits",
+        "faces",
+        "breast_cancer",
+        "wine",
+        "iris",
+    ]
+
+    # Sắp xếp từ lớn → nhỏ theo số mẫu
+    datasets_sorted = sorted(wanted, key=lambda k: size_hint[k], reverse=False)
 
     out_dir = Path("runs")
     out_dir.mkdir(exist_ok=True)
@@ -742,7 +776,7 @@ def run_all_and_save():
 
     start_time = datetime.datetime.now()
     print("=" * 100)
-    print("=== 🧪 QLSH — Benchmark sklearn datasets (sorted LARGE → SMALL) ===")
+    print("=== 🧪 QLSH — Benchmark SMALL (≤12k) datasets, HIGHER DIMENSIONS ===")
     print("=" * 100)
     print(f"Order: {' → '.join(datasets_sorted)}")
     print(f"Start time: {start_time.strftime('%Y-%m-%d %H:%M:%S')}")
@@ -753,7 +787,7 @@ def run_all_and_save():
 
     with open(out_txt, "w", encoding="utf-8") as f:
         f.write("=" * 100 + "\n")
-        f.write("=== QLSH — Benchmark sklearn datasets (sorted LARGE → SMALL) ===\n")
+        f.write("=== QLSH — Benchmark SMALL (≤12k) datasets, HIGHER DIMENSIONS ===\n")
         f.write("=" * 100 + "\n")
         f.write(f"Order: {' → '.join(datasets_sorted)}\n")
         f.write(f"Start time: {start_time.strftime('%Y-%m-%d %H:%M:%S')}\n\n")
@@ -837,6 +871,3 @@ def run_all_and_save():
     with open(out_txt, "a", encoding="utf-8") as f:
         f.write(footer)
     sys.stdout.flush()
-
-if __name__ == "__main__":
-    run_all_and_save()

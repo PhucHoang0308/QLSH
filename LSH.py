@@ -72,14 +72,45 @@ if __name__ == "__main__":
     from sklearn.metrics import f1_score
     from sklearn.preprocessing import StandardScaler
 
-    # Load datasets
+    from sklearn.datasets import fetch_20newsgroups_vectorized
+    from sklearn.decomposition import TruncatedSVD
+    from scipy.sparse import issparse
+
+    # Load các dataset "nhỏ"
     datasets_list = {
         "Iris": datasets.load_iris(),
         "Breast Cancer": datasets.load_breast_cancer(),
         "Digits": datasets.load_digits(),
-        "Covtype": datasets.fetch_covtype()
     }
 
+    # =========================================
+    # 👉 Thêm 20 Newsgroups (vectorized) giống QLSH
+    # =========================================
+    print("Đang load 20 Newsgroups (vectorized)...")
+    X_ng, y_ng = fetch_20newsgroups_vectorized(subset="all", return_X_y=True)
+
+    # Nếu là sparse thì giảm chiều bằng TruncatedSVD
+    if issparse(X_ng):
+        svd = TruncatedSVD(n_components=256, random_state=42)
+        X_ng = svd.fit_transform(X_ng)
+    else:
+        X_ng = np.asarray(X_ng, dtype=np.float32)
+
+    y_ng = np.asarray(y_ng)
+
+    # Tạo object giống kiểu sklearn dataset (có .data và .target)
+    class SimpleDataset:
+        pass
+
+    ng_ds = SimpleDataset()
+    ng_ds.data = X_ng
+    ng_ds.target = y_ng
+
+    datasets_list["20 Newsgroups (vec)"] = ng_ds
+
+    # =========================================
+    # Phần code cũ: chạy LSH trên từng dataset
+    # =========================================
     for name, dataset in datasets_list.items():
         print(f"\nDataset: {name}")
         X = dataset.data
@@ -90,23 +121,28 @@ if __name__ == "__main__":
         X = scaler.fit_transform(X)
 
         # Split into train and test sets
-        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, y, test_size=0.3, random_state=42
+        )
 
         # Initialize and build LSH
-        lsh = LSH(input_dim=X.shape[1], num_bits=16, num_tables=4, random_state=42)
-        lsh.build(X_train)
+        lsh = LSH(input_dim=X.shape[1], num_bits=20, num_tables=6, random_state=42)
+        lsh.build(X_train, bit_per_table=2)
 
         # Query for nearest neighbors and predict labels
         k = 5
         y_pred = []
         for x in X_test:
             neighbors = lsh.query(x, k)
-            neighbor_indices = [np.where((X_train == neighbor[0]).all(axis=1))[0][0] for neighbor in neighbors]
+            neighbor_indices = [
+                np.where((X_train == neighbor[0]).all(axis=1))[0][0]
+                for neighbor in neighbors
+            ]
             neighbor_labels = [y_train[idx] for idx in neighbor_indices]
             # Majority vote
             pred_label = max(set(neighbor_labels), key=neighbor_labels.count)
             y_pred.append(pred_label)
 
         # Calculate F1-score
-        f1 = f1_score(y_test, y_pred, average='weighted')
+        f1 = f1_score(y_test, y_pred, average="weighted")
         print(f"F1-score: {f1:.4f}")
