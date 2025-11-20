@@ -30,8 +30,9 @@ def Quantum_Hamming_Distance(dataset, query_list, length, length_dist, P, k, que
     query_reg = list(range(index_reg_qubits+length, index_reg_qubits+length+length))
     distance_reg = list(range(index_reg_qubits+length+length, index_reg_qubits+length+length+length_dist))
     ancilla_qubit = index_reg_qubits+length+length+length_dist
-    print("Shot calculation estimate: ",int(np.ceil(len(dataset)*np.log2(max(2, len(dataset))))), flush=True)
-    shots = max(20, int(np.ceil(len(dataset)*np.log2(max(2, len(dataset))))))  # Ensure minimum 20 shots
+
+    shots = 5
+    print(f"  🔬 Running with SINGLE SHOT (shots=1)", flush=True)
 
     def Hamming_circuit(data_reg_idx, query_reg_idx, length):
         for n in range(length):
@@ -79,8 +80,6 @@ def Quantum_Hamming_Distance(dataset, query_list, length, length_dist, P, k, que
     def retrieve(dist,thresh):
         index, value = list(map(lambda x: x[:index_reg_qubits], dist)), list(map(lambda x: list(reversed(x[index_reg_qubits:])), dist))
         index_dec, value_dec = bin_to_dec(index, index_reg_qubits), bin_to_dec(value, length_dist)
-        # print(value)
-        # print("Values: ", value_dec)
         indices = [i for i, x in enumerate(value_dec) if x <= thresh]
         return [index_dec[i] for i in indices]
 
@@ -103,7 +102,7 @@ def Quantum_Hamming_Distance(dataset, query_list, length, length_dist, P, k, que
             qml.adjoint(qml.BasisEmbedding)(query, wires=query_reg)
         return qml.sample(wires = index_reg + distance_reg)
 
-    # Get circuit depth and specs (robust với nhiều version PennyLane)
+    # Get circuit depth and specs
     circuit_depth = 0
     circuit_num_gates = 0
 
@@ -113,22 +112,18 @@ def Quantum_Hamming_Distance(dataset, query_list, length, length_dist, P, k, que
         circuit_depth = 0
         circuit_num_gates = 0
 
-        # Spec dạng dict
         if isinstance(specs, dict):
-            # depth
             if "depth" in specs:
                 circuit_depth = specs["depth"]
             elif "resources" in specs and hasattr(specs["resources"], "depth"):
                 circuit_depth = specs["resources"].depth
 
-            # num gates
             if "num_operations" in specs:
                 circuit_num_gates = specs["num_operations"]
             elif "resources" in specs and hasattr(specs["resources"], "num_operations"):
                 circuit_num_gates = specs["resources"].num_operations
 
         else:
-            # spec dạng object
             res = getattr(specs, "resources", specs)
             circuit_depth = getattr(res, "depth", 0)
             circuit_num_gates = getattr(res, "num_operations", 0)
@@ -137,28 +132,14 @@ def Quantum_Hamming_Distance(dataset, query_list, length, length_dist, P, k, que
         print(f"  ⚠️ Could not compute circuit specs: {e}", flush=True)
         circuit_depth = 0
         circuit_num_gates = 0
+    
     print(
         f"  🔬 Circuit specs - Shots: {shots}, Depth: {circuit_depth}, Gates: {circuit_num_gates}",
         flush=True,
     )
 
-    # Save circuit diagram if requested
-    '''if save_circuit:
-        try:
-            circuit_dir = Path("circuits")
-            circuit_dir.mkdir(exist_ok=True)
-            
-            fig, ax = qml.draw_mpl(circuit, decimals=2, style='sketch')(shots=shots)
-            circuit_file = circuit_dir / f"circuit_query_{query_idx}.png"
-            plt.savefig(circuit_file, dpi=300, bbox_inches='tight')
-            plt.close(fig)
-            print(f"  💾 Circuit diagram saved to: {circuit_file}", flush=True)
-        except Exception as e:
-            print(f"  ⚠️ Could not save circuit diagram: {e}", flush=True)'''
-
     dist = [list(x) for x in dict.fromkeys(map(tuple, circuit(shots = shots)))]
     thresh = thresh_finding(dist)
-    # print("Thresh: ", thresh)
     result = retrieve(dist,thresh)
     
     return result, shots, circuit_depth, circuit_num_gates
@@ -174,34 +155,24 @@ class QLSH:
         for _ in range(num_tables):
             random_planes = self.rng.randn(num_bits, input_dim)
             Q, _ = np.linalg.qr(random_planes.T)
-            self.hyperplanes.append(Q.T)  # Transpose back to original shape
+            self.hyperplanes.append(Q.T)
         self.tables = [{} for _ in range(num_tables)]
-        self.data = []  # List to store (vector, bit_array) tuples
-        self.length = 4  # Length of each partition
+        self.data = []
+        self.length = 4
 
 
     def _random_projection_data(self, data, hyperplane):
-        """
-        Process entire database at once
-        data: array of shape (n_samples, input_dim)
-        hyperplane: array of shape (num_bits, input_dim)
-        Returns: list of lists, where each inner list contains binary strings for one sample
-        """
         partition_length = 4
-        # Project all data points at once: (num_bits, input_dim) @ (input_dim, n_samples) = (num_bits, n_samples)
-        projections = np.dot(hyperplane, data.T)  # Shape: (num_bits, n_samples)
-        binary_bits = (projections > 0).astype(int)  # Convert to 0s and 1s
+        projections = np.dot(hyperplane, data.T)
+        binary_bits = (projections > 0).astype(int)
 
-        # Process each sample
         all_binary_strings = []
         for sample_idx in range(data.shape[0]):
-            sample_bits = binary_bits[:, sample_idx]  # Get bits for this sample
+            sample_bits = binary_bits[:, sample_idx]
 
-            # Partition the binary bits into chunks of partition_length
             binary_strings = []
             for i in range(0, len(sample_bits), partition_length):
                 chunk = sample_bits[i:i+partition_length]
-                # Convert chunk to binary string
                 binary_string = ''.join(map(str, chunk))
                 binary_strings.append(binary_string)
 
@@ -210,21 +181,13 @@ class QLSH:
         return all_binary_strings
 
     def _random_projection_query(self, x, hyperplane):
-        """
-        Process single query vector
-        x: single vector of shape (input_dim,)
-        hyperplane: array of shape (num_bits, input_dim)
-        Returns: list of lists of integers for the single query vector
-        """
         partition_length = 4
-        # Project single query vector: (num_bits, input_dim) @ (input_dim,) = (num_bits,)
         projections = np.dot(hyperplane, x)
-        binary_bits = (projections > 0).astype(int)  # Convert to 0s and 1s
+        binary_bits = (projections > 0).astype(int)
 
-        # Partition the binary bits into chunks of partition_length
         binary_partitions = []
         for i in range(0, len(binary_bits), partition_length):
-            chunk = binary_bits[i:i+partition_length].tolist()  # Convert to list
+            chunk = binary_bits[i:i+partition_length].tolist()
             binary_partitions.append(chunk)
 
         return binary_partitions
@@ -232,93 +195,63 @@ class QLSH:
     def build(self, data, bit_per_table=None):
         self.bit_per_table = bit_per_table if bit_per_table is not None else self.num_bits//2
 
-        # Convert data to numpy array if it isn't already
         data_array = np.array(data)
 
-        # Process all data at once for each hyperplane
         for table_idx, hyperplane in enumerate(self.hyperplanes):
             all_bit_arrays = self._random_projection_data(data_array, hyperplane)
 
-            # Store data and update hash tables
             for i, (vector, bit_array) in enumerate(zip(data, all_bit_arrays)):
-                if table_idx == 0:  # Only store the vector once
+                if table_idx == 0:
                     self.data.append((vector, [None] * self.num_tables))
 
-                # Store bit array for this table
                 self.data[i][1][table_idx] = bit_array
 
-                # Update hash table using first bit_per_table bits (not partitions)
-                # Concatenate all partitions to get the full bit string
                 full_bit_string = ''.join(bit_array)
-                # Take only the first bit_per_table bits
                 hash_key = full_bit_string[:self.bit_per_table]
                 self.tables[table_idx].setdefault(hash_key, []).append(i)
+    
     def query(self, x, k, query_idx=0, save_circuit=True):
-        """
-        Query for k nearest neighbors using quantum Hamming distance
-        x: query vector
-        k: number of nearest neighbors to return
-        query_idx: index of current query (for saving circuit)
-        save_circuit: whether to save circuit diagram
-        """
-
         candidates = set()
 
-        # Get bit representations for query vector from all tables
         query_bits_all_tables = [self._random_projection_query(x, hyperplane) for hyperplane in self.hyperplanes]
 
-        # Collect candidates from all hash tables
         for table_idx, (query_bits, table) in enumerate(zip(query_bits_all_tables, self.tables)):
-            # Create hash key from first bit_per_table bits (not partitions)
-            # Convert partitions to full bit string
             full_query_bits = []
             for partition in query_bits:
                 full_query_bits.extend([str(bit) for bit in partition])
             full_query_string = ''.join(full_query_bits)
-            # Take only the first bit_per_table bits
             hash_key = full_query_string[:self.bit_per_table]
-            # Get candidates from this table
             table_candidates = table.get(hash_key, [])
             candidates.update(table_candidates)
 
         print(f"Number of candidates: {len(candidates)}", flush=True)
 
         if not candidates:
-            # If no candidates found, return k random vectors
             random_indices = self.rng.choice(len(self.data), min(k, len(self.data)), replace=False)
             return [(self.data[i][0], float('inf')) for i in random_indices], 0, 0, 0
 
-        # Prepare dataset for quantum computation
-        # Convert candidate data to the format expected by Quantum_Hamming_Distance
         candidate_data = []
 
         for idx in candidates:
             vector, bit_arrays = self.data[idx]
-            # bit_arrays is a list of lists of binary strings (one per table)
-            # Flatten all binary strings from all tables into one list
             flattened_partitions = []
             for table_bits in bit_arrays:
                 flattened_partitions.extend(table_bits)
             candidate_data.append(flattened_partitions)
 
-        # Convert query bits to the same format
-        # Flatten all partitions from all tables
         query_list = []
         for table_bits in query_bits_all_tables:
             for partition in table_bits:
-                query_list.append(partition)  # Each partition is already a list of integers
+                query_list.append(partition)
 
-        # Parameters for quantum computation
-        length = self.length  # Length of each partition (4)
+        length = self.length
 
-        # FIX: Calculate actual number of partitions
-        actual_P = len(query_list)  # This is the actual number of partitions we have
+        actual_P = len(query_list)
 
-        # Verify that candidate_data has the same structure
         if candidate_data:
             assert len(candidate_data[0]) == actual_P, f"Mismatch: candidate has {len(candidate_data[0])} partitions but query has {actual_P}"
 
-        length_dist = int(np.ceil(np.log2(actual_P * length)))  # Length for distance register based on actual partitions
+        length_dist = int(np.ceil(np.log2(actual_P * length)))
 
         print(f"Debug info:", flush=True)
         print(f"  num_tables: {self.num_tables}", flush=True)
@@ -328,23 +261,20 @@ class QLSH:
         print(f"  query_list length: {len(query_list)}", flush=True)
         print(f"  candidate_data[0] length: {len(candidate_data[0]) if candidate_data else 'N/A'}", flush=True)
 
-        # Call quantum Hamming distance function with circuit info
         quantum_results, shots, circuit_depth, circuit_num_gates = Quantum_Hamming_Distance(
             dataset=candidate_data,
             query_list=query_list,
             length=length,
             length_dist=length_dist,
-            P=actual_P,  # Use actual number of partitions
+            P=actual_P,
             k=k,
             query_idx=query_idx,
             save_circuit=save_circuit
         )
 
-        # Handle case where quantum function returns None
         if quantum_results is None:
             quantum_results = []
 
-        # Convert quantum results back to (vector, distance) format
         results = []
         candidate_indices = list(candidates)
         used_original_indices = set()
@@ -353,23 +283,18 @@ class QLSH:
             if quantum_idx < len(candidate_indices):
                 original_idx = candidate_indices[quantum_idx]
                 vector = self.data[original_idx][0]
-                # Use quantum_idx as distance (lower means closer)
                 results.append((vector, quantum_idx))
                 used_original_indices.add(original_idx)
 
         print(f"Quantum returned {len(results)} results", flush=True)
 
-        # If quantum returns fewer than k results, fill with additional candidates
         if len(results) < k:
-            # Get remaining candidates not yet included
             remaining_candidates = [idx for idx in candidate_indices if idx not in used_original_indices]
 
-            # Calculate cosine similarities for remaining candidates
             if remaining_candidates:
                 remaining_vectors = [self.data[idx][0] for idx in remaining_candidates]
                 similarities = cosine_similarity([x], remaining_vectors)[0]
 
-                # Sort by similarity and take what we need
                 sorted_indices = np.argsort(similarities)[::-1]
                 needed = k - len(results)
 
@@ -377,21 +302,16 @@ class QLSH:
                     idx = remaining_candidates[i]
                     results.append((self.data[idx][0], -similarities[i]))
 
-        # If quantum returns more than k results, sort by cosine similarity and take top k
         if len(results) > k:
-            # Calculate cosine similarities for all quantum results
             vectors_for_similarity = [result[0] for result in results]
             similarities = cosine_similarity([x], vectors_for_similarity)[0]
 
-            # Create list of (vector, quantum_distance, cosine_similarity) tuples
             enhanced_results = []
             for i, (vector, quantum_dist) in enumerate(results):
                 enhanced_results.append((vector, quantum_dist, similarities[i]))
 
-            # Sort by cosine similarity (descending - higher similarity is better)
             enhanced_results.sort(key=lambda x: x[2], reverse=True)
 
-            # Take top k and convert back to (vector, distance) format
             results = [(vector, -cosine_sim) for vector, quantum_dist, cosine_sim in enhanced_results[:k]]
 
         return results[:k], shots, circuit_depth, circuit_num_gates
@@ -399,19 +319,13 @@ class QLSH:
 
 
 def get_cosine_ground_truth(data, query, k):
-    """Calculate cosine similarity ground truth"""
-    # Calculate cosine similarities between query and all data points
     similarities = cosine_similarity([query], data)[0]
-    # Get indices of k most similar vectors (highest cosine similarity)
-    nearest_neighbors = np.argsort(similarities)[-k:][::-1]  # Reverse for descending order
+    nearest_neighbors = np.argsort(similarities)[-k:][::-1]
     return nearest_neighbors, similarities[nearest_neighbors]
 
 def calculate_f1_score(qlsh_results, ground_truth_indices, qlsh_data):
-    """Calculate F1 score between QLSH results and ground truth"""
-    # Extract indices from QLSH results by finding their positions in the original data
     qlsh_indices = []
     for result_vector, _ in qlsh_results:
-        # Find the index of this vector in the original dataset
         for i, (stored_vector, _) in enumerate(qlsh_data):
             if np.allclose(result_vector, stored_vector, atol=1e-10):
                 qlsh_indices.append(i)
@@ -420,7 +334,6 @@ def calculate_f1_score(qlsh_results, ground_truth_indices, qlsh_data):
     qlsh_set = set(qlsh_indices)
     ground_truth_set = set(ground_truth_indices)
 
-    # Calculate precision, recall, and F1
     true_positives = len(qlsh_set & ground_truth_set)
     false_positives = len(qlsh_set - ground_truth_set)
     false_negatives = len(ground_truth_set - qlsh_set)
@@ -432,7 +345,6 @@ def calculate_f1_score(qlsh_results, ground_truth_indices, qlsh_data):
     return precision, recall, f1, qlsh_indices
 
 def format_time(seconds):
-    """Format seconds to readable time string"""
     if seconds < 1:
         return f"{seconds*1000:.2f}ms"
     elif seconds < 60:
@@ -451,7 +363,6 @@ from sklearn.datasets import (
     load_breast_cancer,
     load_digits,
     fetch_olivetti_faces,
-    fetch_california_housing,
     fetch_20newsgroups_vectorized,
     make_classification,
 )
@@ -460,9 +371,6 @@ from sklearn.decomposition import TruncatedSVD
 from scipy.sparse import issparse
 
 def _load_dataset_by_key(dataset_type: str):
-    """
-    Returns (X, y, dataset_name)
-    """
     if dataset_type == 'iris':
         ds = load_iris()
         return ds.data, ds.target, "Iris"
@@ -482,9 +390,6 @@ def _load_dataset_by_key(dataset_type: str):
         if y is None:
             y = np.zeros(X.shape[0], dtype=int)
         return X, y, "Olivetti Faces"
-    if dataset_type == 'housing':
-        ds = fetch_california_housing()
-        return ds.data, ds.target, "California Housing"
     if dataset_type == 'newsgroups_vec':
         Xy = fetch_20newsgroups_vectorized(subset='all', return_X_y=True)
         X, y = Xy
@@ -495,7 +400,6 @@ def _load_dataset_by_key(dataset_type: str):
         y = np.asarray(y) if y is not None else np.zeros(X_reduced.shape[0], dtype=int)
         return X_reduced, y, "20 Newsgroups (vectorized, SVD=256)"
     
-    # 🔹 Dataset synthetic: tối đa 10k mẫu, 512 chiều
     if dataset_type == 'syn_10k_512':
         X, y = make_classification(
             n_samples=10000,
@@ -513,7 +417,6 @@ def test_qlsh_dataset(name=None, dataset_type='iris'):
     dataset_folder = Path("dataset")
     dataset_folder.mkdir(exist_ok=True)
 
-    # Load dataset
     if name is not None:
         filepath = dataset_folder / name
         if not filepath.exists():
@@ -557,7 +460,6 @@ def test_qlsh_dataset(name=None, dataset_type='iris'):
 
         print(f"Testing QLSH with F1 Score Evaluation and Timing - {dataset_name} Dataset", flush=True)
 
-    # Parameters
     n_samples = df.shape[0]
     n_dimensions = df.shape[1] - 1
     k = 5
@@ -577,7 +479,6 @@ def test_qlsh_dataset(name=None, dataset_type='iris'):
     print(f"Queries: {n_queries} | Indices: {query_indices.tolist()}", flush=True)
     print(f"K (nearest neighbors): {k}", flush=True)
 
-    # Initialize QLSH
     if n_samples < 500:
         num_tables = 4
         num_bits = 8
@@ -602,7 +503,6 @@ def test_qlsh_dataset(name=None, dataset_type='iris'):
     print(f"  Number of tables: {qlsh.num_tables}", flush=True)
     print(f"  Partition length: {qlsh.length}", flush=True)
 
-    # Qubit count
     partitions_per_table = qlsh.num_bits // qlsh.length
     total_partitions = partitions_per_table * qlsh.num_tables
     length_dist = int(np.ceil(np.log2(total_partitions * qlsh.length)))
@@ -622,7 +522,6 @@ def test_qlsh_dataset(name=None, dataset_type='iris'):
     print(f"  Ancilla qubits: {ancilla_qubits}", flush=True)
     print(f"  ➤ TOTAL QUBITS REQUIRED: {total_qubits}", flush=True)
 
-    # Build index
     print(f"\nBuilding QLSH index...", flush=True)
     build_start = time.time()
     qlsh.build(data, bit_per_table=bit_bucket)
@@ -630,7 +529,6 @@ def test_qlsh_dataset(name=None, dataset_type='iris'):
     print(f"Build completed in {format_time(build_time)}", flush=True)
     print(f"  Data stored: {len(qlsh.data)} samples", flush=True)
 
-    # Query + metrics
     print(f"\n{'='*70}\nTESTING {n_queries} QUERIES\n{'='*70}", flush=True)
     f1_scores, all_precisions, all_recalls, query_times = [], [], [], []
     all_shots, all_depths, all_gates = [], [], []
@@ -639,13 +537,11 @@ def test_qlsh_dataset(name=None, dataset_type='iris'):
     for qi, query in enumerate(queries, 1):
         print(f"\n[Query {qi}/{n_queries}]", flush=True)
         
-        # Ground truth
         gt_start = time.time()
         ground_truth_indices, _ = get_cosine_ground_truth(data, query, k)
         gt_time = time.time() - gt_start
         print(f"  Ground truth calculation: {format_time(gt_time)}", flush=True)
 
-        # QLSH
         q_start = time.time()
         try:
             results, shots, circuit_depth, circuit_num_gates = qlsh.query(
@@ -677,25 +573,22 @@ def test_qlsh_dataset(name=None, dataset_type='iris'):
 
     epoch_time = time.time() - epoch_start
 
-    # Summary
     print(f"\n{'='*70}\nOVERALL RESULTS\n{'='*70}", flush=True)
     print(f"\n📊 Performance Metrics:", flush=True)
     print(f"  Average Precision: {np.mean(all_precisions):.4f} ± {np.std(all_precisions):.4f}", flush=True)
     print(f"  Average Recall   : {np.mean(all_recalls):.4f} ± {np.std(all_recalls):.4f}", flush=True)
     print(f"  Average F1 Score : {np.mean(f1_scores):.4f} ± {np.std(f1_scores):.4f}", flush=True)
 
-    print(f"\n⏱️  Timing Statistics:", flush=True)
+    print(f"\n⏱️ Timing Statistics:", flush=True)
     print(f"  Build time       : {format_time(build_time)}", flush=True)
     print(f"  Total epoch time : {format_time(epoch_time)}", flush=True)
     print(f"  Average query    : {format_time(np.mean(query_times))} ± {format_time(np.std(query_times))}", flush=True)
     print(f"  Min / Max query  : {format_time(np.min(query_times))} / {format_time(np.max(query_times))}", flush=True)
 
     print(f"\n🔬 Circuit Statistics:", flush=True)
-    print(f"  Average shots    : {np.mean(all_shots):.1f} ± {np.std(all_shots):.1f}", flush=True)
+    print(f"  Shots per query  : {all_shots[0] if all_shots else 0} (SINGLE SHOT)", flush=True)
     print(f"  Average depth    : {np.mean(all_depths):.1f} ± {np.std(all_depths):.1f}", flush=True)
     print(f"  Average gates    : {np.mean(all_gates):.1f} ± {np.std(all_gates):.1f}", flush=True)
-    print(f"  Min / Max shots  : {np.min(all_shots) if all_shots else 0} / {np.max(all_shots) if all_shots else 0}", flush=True)
-    print(f"  Min / Max depth  : {np.min(all_depths) if all_depths else 0} / {np.max(all_depths) if all_depths else 0}", flush=True)
 
     print(f"\n💾 Memory Statistics:", flush=True)
     print(f"  Total samples indexed: {len(qlsh.data)}", flush=True)
@@ -720,14 +613,11 @@ def test_qlsh_dataset(name=None, dataset_type='iris'):
             'ancilla': int(ancilla_qubits)
         },
         'circuit_stats': {
-            'avg_shots': float(np.mean(all_shots)) if all_shots else 0.0,
+            'shots': 1,  # Always 1 shot
             'avg_depth': float(np.mean(all_depths)) if all_depths else 0.0,
             'avg_gates': float(np.mean(all_gates)) if all_gates else 0.0,
-            'min_shots': int(np.min(all_shots)) if all_shots else 0,
-            'max_shots': int(np.max(all_shots)) if all_shots else 0,
             'min_depth': int(np.min(all_depths)) if all_depths else 0,
             'max_depth': int(np.max(all_depths)) if all_depths else 0,
-            'all_shots': [int(s) for s in all_shots],
             'all_depths': [int(d) for d in all_depths],
             'all_gates': [int(g) for g in all_gates]
         }
@@ -735,51 +625,45 @@ def test_qlsh_dataset(name=None, dataset_type='iris'):
 
 def run_all_and_save():
     """
-    Run all datasets và sắp xếp từ LỚN → NHỎ theo số lượng mẫu,
-    nhưng tất cả đều có số mẫu <= 12k.
-
-    Bao gồm:
-      - syn_10k_512     (~10k mẫu, 512 chiều, synthetic)
-      - digits          (~1.8k mẫu, 64 chiều)
-      - faces           (400 mẫu, ~4096 chiều)
-      - breast_cancer   (569 mẫu, 30 chiều)
-      - wine            (178 mẫu, 13 chiều)
-      - iris            (150 mẫu, 4 chiều)
+    Run all datasets EXCEPT housing, with SINGLE SHOT per query.
+    Sorted from SMALL to LARGE by number of samples.
     """
-    # Hint kích thước để sắp xếp (tất cả đều <= 12k)
     size_hint = {
-        "syn_10k_512": 10000,
-        "digits": 1797,
-        "faces": 400,
-        "breast_cancer": 569,
-        "wine": 178,
         "iris": 150,
+        "wine": 178,
+        "breast_cancer": 569,
+        "faces": 400,
+        "digits": 1797,
+        "syn_10k_512": 10000,
+        "newsgroups_vec": 18846,  # Added this
     }
 
-    # 🔹 Danh sách dataset muốn benchmark: toàn dataset nhỏ, nhưng có chiều cao
+    # ✅ Removed 'housing' from the list
     wanted = [
-        "syn_10k_512",
-        "digits",
-        "faces",
-        "breast_cancer",
-        "wine",
         "iris",
+        "wine", 
+        "breast_cancer",
+        "faces",
+        "digits",
+        "syn_10k_512",
+        "newsgroups_vec",
     ]
 
-    # Sắp xếp từ lớn → nhỏ theo số mẫu
+    # Sort from small to large
     datasets_sorted = sorted(wanted, key=lambda k: size_hint[k], reverse=False)
 
     out_dir = Path("runs")
     out_dir.mkdir(exist_ok=True)
-    out_txt = out_dir / "qlsh_all_datasets.txt"
-    out_json = out_dir / "qlsh_all_datasets.json"
+    out_txt = out_dir / "qlsh_single_shot_results.txt"
+    out_json = out_dir / "qlsh_single_shot_results.json"
 
     start_time = datetime.datetime.now()
     print("=" * 100)
-    print("=== 🧪 QLSH — Benchmark SMALL (≤12k) datasets, HIGHER DIMENSIONS ===")
+    print("=== 🧪 QLSH — SINGLE SHOT BENCHMARK (No Housing Dataset) ===")
     print("=" * 100)
     print(f"Order: {' → '.join(datasets_sorted)}")
     print(f"Start time: {start_time.strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"Shot count: 1 (SINGLE SHOT per query)")
     print("=" * 100)
     sys.stdout.flush()
 
@@ -787,10 +671,11 @@ def run_all_and_save():
 
     with open(out_txt, "w", encoding="utf-8") as f:
         f.write("=" * 100 + "\n")
-        f.write("=== QLSH — Benchmark SMALL (≤12k) datasets, HIGHER DIMENSIONS ===\n")
+        f.write("=== QLSH — SINGLE SHOT BENCHMARK (No Housing Dataset) ===\n")
         f.write("=" * 100 + "\n")
         f.write(f"Order: {' → '.join(datasets_sorted)}\n")
-        f.write(f"Start time: {start_time.strftime('%Y-%m-%d %H:%M:%S')}\n\n")
+        f.write(f"Start time: {start_time.strftime('%Y-%m-%d %H:%M:%S')}\n")
+        f.write(f"Shot count: 1 (SINGLE SHOT per query)\n\n")
         f.flush()
 
         for idx, ds in enumerate(datasets_sorted, 1):
@@ -830,11 +715,10 @@ def run_all_and_save():
                     f"Build time           : {summary['build_time']:.4f} s\n"
                     f"Epoch time           : {summary['epoch_time']:.4f} s\n"
                     f"Total qubits used    : {summary['total_qubits']}\n"
-                    f"\nCircuit Statistics:\n"
-                    f"  Average shots      : {circuit_stats.get('avg_shots', 0):.1f}\n"
+                    f"\nCircuit Statistics (SINGLE SHOT):\n"
+                    f"  Shots per query    : {circuit_stats.get('shots', 1)}\n"
                     f"  Average depth      : {circuit_stats.get('avg_depth', 0):.1f}\n"
                     f"  Average gates      : {circuit_stats.get('avg_gates', 0):.1f}\n"
-                    f"  Min/Max shots      : {circuit_stats.get('min_shots', 0)} / {circuit_stats.get('max_shots', 0)}\n"
                     f"  Min/Max depth      : {circuit_stats.get('min_depth', 0)} / {circuit_stats.get('max_depth', 0)}\n"
                 )
                 print(summary_text)
@@ -858,17 +742,18 @@ def run_all_and_save():
     total_time = end_time - start_time
     footer = (
         f"\n{'='*100}\n"
-        f"✅ ALL DATASETS COMPLETED\n"
+        f"✅ ALL DATASETS COMPLETED (SINGLE SHOT MODE)\n"
         f"Start : {start_time.strftime('%Y-%m-%d %H:%M:%S')}\n"
         f"End   : {end_time.strftime('%Y-%m-%d %H:%M:%S')}\n"
         f"Total time: {total_time}\n"
         f"📄 Detailed log saved to: {out_txt}\n"
         f"📊 Summary JSON saved to: {out_json}\n"
-        f"🖼️  Circuit diagrams saved to: circuits/\n"
         f"{'='*100}\n"
     )
     print(footer)
     with open(out_txt, "a", encoding="utf-8") as f:
         f.write(footer)
     sys.stdout.flush()
+
+# Run the benchmark
 run_all_and_save()
